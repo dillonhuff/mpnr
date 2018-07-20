@@ -42,8 +42,8 @@ module test();
    initial begin
 
       cycle_count = 0;
-      config_file = $fopen("./test/conv_3_1_only_config_lines.bsa", "r");
-      test_output_file = $fopen("conv_3_1_gold_cgra_out.txt", "w");
+      config_file = $fopen("passthrough.bsa", "r");
+      test_output_file = $fopen("passthrough.txt", "w");
 
       reset_done = 0;
       clear_with_zeros_done = 0;

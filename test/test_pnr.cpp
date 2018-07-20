@@ -9,6 +9,12 @@ using namespace std;
 
 namespace mpnr {
 
+  void runBitStream(const std::string& tbFile, const std::string& bitStreamFile) {
+    int vcsCompileRes = system(("vcs -assert disable +nbaopt +rad +nospecify +notimingchecks -ld gcc-4.4 +vcs+lic+wait -licqueue +cli -sverilog -full64 +incdir+/hd/cad/synopsys/dc_shell/latest/packages/gtech/src_ver/ +incdir+/hd/cad/synopsys/dc_shell/latest/dw/sim_ver/ -y /hd/cad/synopsys/dc_shell/latest/dw/sim_ver/ -CFLAGS '-O3 -march=native' ./cgra_verilog/*.v ./cgra_verilog/*.sv " + tbFile + " -top test").c_str());
+    assert(vcsCompileRes == 0);
+    //assert(false);
+  }
+
   class TileCoordinates {
   public:
     int first;
@@ -272,7 +278,11 @@ namespace mpnr {
       cgra.printPlacement(tilePlacement);
     }
 
-    
+    SECTION("Route and execute routed code") {
+      string bitstreamFile = "passthrough.bsa";
+      string testFile = "verilog_tbs/test_passthrough_route.v";
+      runBitStream(testFile, bitstreamFile);
+    }
 
     deleteContext(c);
   }
