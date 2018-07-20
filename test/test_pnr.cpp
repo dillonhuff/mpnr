@@ -15,6 +15,10 @@ namespace mpnr {
     int second;
   };
 
+  bool operator==(const TileCoordinates a, const TileCoordinates b) {
+    return (a.first == b.first) && (a.second == b.second);
+  }
+
   bool operator<(const TileCoordinates a, const TileCoordinates b) {
     if (a.first < b.first) {
       return true;
@@ -84,14 +88,12 @@ namespace mpnr {
       topIORow.push_back(emptyTile(-1, {0, 0}));
       topIORow.push_back(emptyTile(-1, {0, 1}));
 
-      for (; start_tile_no < pe_grid_len; start_tile_no++) {
+      for (; start_tile_no < pe_grid_len + 2; start_tile_no++) {
 	topIORow.push_back(io1Tile(start_tile_no, {0, start_tile_no}));
       }
 
       topIORow.push_back(emptyTile(-1, {0, start_tile_no}));
-      start_tile_no++;
       topIORow.push_back(emptyTile(-1, {0, start_tile_no}));
-      start_tile_no++;
       
       tileRows.push_back(topIORow);
 
@@ -102,10 +104,9 @@ namespace mpnr {
       sndTileRow.push_back(emptyTile(-1, {1, 0}));
       sndTileRow.push_back(emptyTile(-1, {1, 1}));
 
-
       sndTileRow.push_back(io16Tile(start_tile_no, {1, 2}));
       start_tile_no++;
-      for (int i = 0; i < pe_grid_len + 2; i++) {
+      for (int i = 0; i < pe_grid_len + 1; i++) {
 	sndTileRow.push_back(emptyTile(-1, {1, i + 3}));
       }
 
@@ -137,6 +138,12 @@ namespace mpnr {
       start_tile_no++;
 
       tileRows.push_back(thirdRow);
+
+      printPlacement({});
+      unsigned rowZeroSize = tileRows[0].size();
+      for (auto r : tileRows) {
+	assert(rowZeroSize == r.size());
+      }
       
       // for (int row = 0; row < grid_len; row++) {
       // 	vector<CGRATile> tileRow;
@@ -177,6 +184,29 @@ namespace mpnr {
 
     int getPEGridLen() const {
       return pe_grid_len;
+    }
+
+    void printPlacement(const std::map<CoreIR::Instance*, TileCoordinates>& placement) const {
+      for (unsigned i = 0; i < tileRows.size(); i++) {
+	auto& gridRow = tileRows[i];
+	for (unsigned j = 0; j < gridRow.size(); j++) {
+	  TileCoordinates coords = {(int) i, (int) j};
+	  bool isPlaced = false;
+	  for (auto place : placement) {
+	    if (place.second == coords) {
+	      isPlaced = true;
+	      break;
+	    }
+	  }
+
+	  if (isPlaced) {
+	    cout << " P";
+	  } else {
+	    cout << " .";
+	  }
+	}
+	cout << " " << endl;
+      }
     }
   };
 
@@ -238,7 +268,11 @@ namespace mpnr {
   	}
   	coords.push_back(t);
       }
+
+      cgra.printPlacement(tilePlacement);
     }
+
+    
 
     deleteContext(c);
   }
