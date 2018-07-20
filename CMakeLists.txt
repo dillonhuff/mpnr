@@ -18,4 +18,4 @@ add_library(mpnr ${CPP_FILES})
 SET(SMALL_TEST_FILES ./test/test_pnr.cpp)
 
 add_executable(all-tests test/test_main.cpp ${SMALL_TEST_FILES})
-target_link_libraries(all-tests mpnr dl coreir coreir-rtlil coreir-commonlib)
+target_link_libraries(all-tests mpnr dl coreir coreir-rtlil coreir-commonlib coreir-cgralib)
