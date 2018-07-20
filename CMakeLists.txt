@@ -11,11 +11,11 @@ SET( CMAKE_EXE_LINKER_FLAGS  "${CMAKE_EXE_LINKER_FLAGS} ${CXX_OCL_LINK_FLAGS}")
 
 INCLUDE_DIRECTORIES(./src/)
 
-SET(CPP_FILES ./src/simulator.cpp)
+SET(CPP_FILES ./src/pnr.cpp)
 add_library(mpnr ${CPP_FILES})
 
 # Test executables
 SET(SMALL_TEST_FILES ./test/test_pnr.cpp)
 
 add_executable(all-tests test/test_main.cpp ${SMALL_TEST_FILES})
-target_link_libraries(all-tests flatcircuit dl coreir coreir-rtlil coreir-commonlib)
+target_link_libraries(all-tests mpnr dl coreir coreir-rtlil coreir-commonlib)
