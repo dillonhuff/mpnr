@@ -9,7 +9,25 @@ using namespace std;
 
 namespace mpnr {
 
-  typedef std::pair<int, int> TileCoordinates;
+  class TileCoordinates {
+  public:
+    int first;
+    int second;
+  };
+
+  bool operator<(const TileCoordinates a, const TileCoordinates b) {
+    if (a.first < b.first) {
+      return true;
+    }
+
+    // a.first >= b.first
+    if (a.first == b.first) {
+      return a.second < b.second;
+    }
+
+    // a.first > b.first
+    return false;
+  }
 
   enum TileType {
     TILE_TYPE_IO_1,
@@ -30,6 +48,14 @@ namespace mpnr {
     TileCoordinates coordinates;
   };
 
+  CGRATile peTile(const int tileNumber, TileCoordinates loc) {
+    return {TILE_TYPE_PE, tileNumber, loc};
+  }
+
+  CGRATile memTile(const int tileNumber, TileCoordinates loc) {
+    return {TILE_TYPE_MEM, tileNumber, loc};
+  }
+  
   CGRATile emptyTile(const int tileNumber, TileCoordinates loc) {
     return {TILE_TYPE_EMPTY, tileNumber, loc};
   }
@@ -46,6 +72,7 @@ namespace mpnr {
     int pe_grid_len;
 
     std::vector<std::vector<CGRATile> > tileRows;
+    std::set<TileCoordinates> occupiedTiles;
 
   public:
     CGRA(const int pe_grid_len_) : pe_grid_len(pe_grid_len_) {
@@ -85,6 +112,31 @@ namespace mpnr {
       tileRows.push_back(sndTileRow);
 
       assert(start_tile_no == 19);
+
+      // Construct 3rd row: 1bit, 16bit, <pe / mem grid>, 16 bit, 1bit
+      vector<CGRATile> thirdRow;
+      thirdRow.push_back(io1Tile(start_tile_no, {2, 0}));
+      start_tile_no++;
+
+      thirdRow.push_back(io16Tile(start_tile_no, {2, 1}));
+      start_tile_no++;
+
+      for (int i = 0; i < pe_grid_len; i++) {
+	if ((i % 4) == 3) {
+	  thirdRow.push_back(memTile(start_tile_no, {2, i + 2}));
+	} else {
+	   thirdRow.push_back(peTile(start_tile_no, {2, i + 2}));
+	}
+	start_tile_no++;
+      }
+      
+      thirdRow.push_back(io16Tile(start_tile_no, {2, pe_grid_len + 2}));
+      start_tile_no++;
+
+      thirdRow.push_back(io1Tile(start_tile_no, {2, pe_grid_len + 3}));
+      start_tile_no++;
+
+      tileRows.push_back(thirdRow);
       
       // for (int row = 0; row < grid_len; row++) {
       // 	vector<CGRATile> tileRow;
@@ -96,13 +148,27 @@ namespace mpnr {
       // }
     }
 
-    std::vector<TileCoordinates> unplacedTilesOfType(const TileType& tp) {
+    void setOccupied(const TileCoordinates coords) {
+      occupiedTiles.insert(coords);
+    }
+
+    bool unoccupied(const int tileRow, const int tileCol) const {
+      return !elem({tileRow, tileCol}, occupiedTiles);
+    }
+
+    std::vector<TileCoordinates> unplacedTilesOfType(const TileType& tp) const {
       vector<TileCoordinates> tiles;
-      for (auto row : tileRows) {
-  	for (auto tile : row) {
-  	  if (tile.tp == tp) {
+      //for (auto row : tileRows) {
+      for (unsigned i = 0; i < tileRows.size(); i++) {
+	auto& tileRow = tileRows[i];
+
+	for (unsigned j = 0; j < tileRow.size(); j++) {
+
+	  CGRATile tile = tileRow[j];
+  	  if ((tile.tp == tp) && unoccupied(i, j)) {
   	    tiles.push_back(tile.coordinates);
   	  }
+
   	}
       }
 
@@ -133,6 +199,7 @@ namespace mpnr {
       assert(possibleTiles.size() > 0);
 
       placement[inst] = possibleTiles[0];
+      cgra.setOccupied(possibleTiles[0]);
     }
 
     return placement;
@@ -154,7 +221,7 @@ namespace mpnr {
     def->connect("io0.out","io1.in");
 
     CGRA cgra(16);
-    map<Instance*, pair<int, int> > tilePlacement =
+    map<Instance*, TileCoordinates > tilePlacement =
       placeApplication(*def, cgra);
 
     SECTION("All tiles are placed") {
