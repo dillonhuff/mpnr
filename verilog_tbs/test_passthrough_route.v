@@ -65,7 +65,16 @@ module test();
       
       #1 clk = 0;
 
+      data_driver_16_S0 = 0;
+      
+      data_driver_16_S1 = 0;
+      
       data_driver_16_S2 = 0;
+
+      data_driver_16_S3 = 47;
+      
+      
+      
 
       config_addr = 0;
       config_data = 0;

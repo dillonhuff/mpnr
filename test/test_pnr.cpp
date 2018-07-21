@@ -329,9 +329,9 @@ namespace mpnr {
 	  cout << "\t" << tok << endl;
 	}
 
-	BitVector side2Out = BitVector(16, l1Res[2]);
+	BitVector side3Out = BitVector(16, l1Res[3]);
 
-	REQUIRE(side2Out != BitVector(16, 0));
+	REQUIRE(side3Out != BitVector(16, 0));
       }
       
       fclose(resFile);
