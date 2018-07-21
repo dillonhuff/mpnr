@@ -86,6 +86,31 @@ namespace mpnr {
     std::string name;
   };
 
+  std::ostream& operator<<(std::ostream& out, const CGRAWire wire) {
+    out << wire.location << "." << wire.name;
+    return out;
+  }
+
+  int getIOWireSide(const CGRAWire wire) {
+    string name = wire.name;
+    string side = name.substr(11, 1);
+    cout << "side = " << side << endl;
+    return stoi(side);
+  }
+
+  int getIOWireTrack(const CGRAWire wire) {
+    string name = wire.name;
+    string side = name.substr(14, 1);
+    cout << "track = " << side << endl;
+    return stoi(side);
+  }
+  
+  int oppositeSide(const int side) {
+    assert(side < 4);
+    return (side + 2) % 4;
+  }
+  
+
   enum TileType {
     TILE_TYPE_IO_1,
     TILE_TYPE_IO_16,
@@ -200,19 +225,19 @@ namespace mpnr {
 	  TileCoordinates coords = {row, col};
 	  CGRATile& currentTile = tileMap[coords];
 
-	  cout << "out wires" << endl;
+	  //cout << "out wires" << endl;
 	  vector<string> ioOutWires;
 	  for (auto out : tile.children("output")) {
 	    for (auto c : out.children()) {
-	      cout << "\t" << c.value() << endl;
-	      ioOutWires.push_back(c.value());
+	      //cout << "\t" << c.value() << endl;
+	      currentTile.globalOutWires.push_back(c.value());
 	    }
 	  }
 
 	  vector<string> inWires;
 	  for (auto out : tile.children("input")) {
 	    for (auto c : out.children()) {
-	      inWires.push_back(c.value());
+	      currentTile.globalInWires.push_back(c.value());
 	    }
 	  }
 
@@ -226,7 +251,15 @@ namespace mpnr {
 	    for (auto m : sb.children("mux")) {
 	      string snk = m.attribute("snk").as_string();
 	      //cout << "\tglobal wire = " << snk << endl;
-	      sbComp.muxes.push_back({snk, {}});
+	      map<int, string> srcs;
+	      for (auto src : m.children("src")) {
+		int srcNum = src.attribute("sel").as_int();
+		string srcName = (*std::begin(src.children())).value();
+		srcs.insert({srcNum, srcName});
+	      }
+
+	      sbComp.muxes.push_back({snk, srcs});
+
 	    }
 
 
@@ -288,17 +321,15 @@ namespace mpnr {
       cout << "coordinates = " << t << endl;
       
       if (tileFor.tp == TILE_TYPE_IO_16) {
+	assert((portName == "in") || (portName == "out"));
 	assert(tileFor.globalOutWires.size() > 0);
-	
-	return {t, tileFor.globalOutWires[0]};
+	assert(tileFor.globalInWires.size() > 0);
 
-	// CGRAWireType tp = CGRA_WIRE_GLOBAL;
-	// // Assumes we are dealing with an array
-	// int width = 0;
-	// int side = 0;
-	// int track = 0;
-	// return {t, tp, width, side, track};
+	if (portName == "out") {
+	  return {t, tileFor.globalOutWires[0]};
+	}
 
+	return {t, tileFor.globalInWires[0]};
       }
 
       assert(false);
@@ -333,6 +364,56 @@ namespace mpnr {
       	cout << " " << endl;
       }
     }
+
+    std::vector<CGRAWire> possibleConnections(const CGRAWire wire) {
+      CGRATile tile = getTile(wire.location);
+
+      // 16 bit IO tiles have one neighbor tile
+      if (tile.tp == TILE_TYPE_IO_16) {
+	int side = getIOWireSide(wire);
+	int track = getIOWireTrack(wire);
+
+	int outputSide = oppositeSide(side);
+	if (outputSide == 3) {
+	  CGRATile receiverTile = getTile({tile.coordinates.first + 1, tile.coordinates.second});
+	  cout << "Reciever tile location = " << receiverTile.coordinates << endl;
+
+	  //TileCoordinates receiverLoc = receiverTile.coordinates;
+	  std::string sameNetWire = "in_BUS16_S" + to_string(outputSide) + "_T" + to_string(track);
+	  cout << "Same net wire in receiver tile = " << sameNetWire << endl;
+
+	  vector<string> possibleConnections;
+
+	  for (auto comp : receiverTile.components) {
+	    for (auto mux : comp.muxes) {
+	      cout << "\tmux inputs" << endl;
+	      bool viableOutput = false;
+	      for (auto input : mux.inputs) {
+		if (input.second == sameNetWire) {
+		  viableOutput = true;
+		  break;
+		}
+		cout << "\t\t" << input.second << endl;
+	      }
+
+	      if (viableOutput) {
+		possibleConnections.push_back(mux.snk);
+	      }
+	    }
+	  }
+
+	  cout << "Possible connections" << endl;
+	  for (auto conn : possibleConnections) {
+	    cout << "\t" << conn << endl;
+	  }
+
+	} else {
+	  assert(false);
+	}
+      }
+
+      assert(false);
+    }
   };
 
 
@@ -361,6 +442,13 @@ namespace mpnr {
       CGRAWire dstWire = cgra.wireFor(placement, cast<Select>(dst));
       cout << "Dest coords   = " << dstWire.location << ", Dest wire name   = " << dstWire.name << endl;
 
+      std::vector<CGRAWire> nextSteps =
+	cgra.possibleConnections(srcWire);
+
+      cout << "Possible next steps in path:" << endl;
+      for (auto next : nextSteps) {
+	cout << "\t" << next << endl;
+      }
       
     }
 
