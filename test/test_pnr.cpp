@@ -365,7 +365,7 @@ namespace mpnr {
       }
     }
 
-    std::vector<CGRAWire> possibleConnections(const CGRAWire wire) {
+    std::vector<CGRAWire> getNet(const CGRAWire wire) {
       CGRATile tile = getTile(wire.location);
 
       // 16 bit IO tiles have one neighbor tile
@@ -382,30 +382,7 @@ namespace mpnr {
 	  std::string sameNetWire = "in_BUS16_S" + to_string(outputSide) + "_T" + to_string(track);
 	  cout << "Same net wire in receiver tile = " << sameNetWire << endl;
 
-	  vector<string> possibleConnections;
-
-	  for (auto comp : receiverTile.components) {
-	    for (auto mux : comp.muxes) {
-	      cout << "\tmux inputs" << endl;
-	      bool viableOutput = false;
-	      for (auto input : mux.inputs) {
-		if (input.second == sameNetWire) {
-		  viableOutput = true;
-		  break;
-		}
-		cout << "\t\t" << input.second << endl;
-	      }
-
-	      if (viableOutput) {
-		possibleConnections.push_back(mux.snk);
-	      }
-	    }
-	  }
-
-	  cout << "Possible connections" << endl;
-	  for (auto conn : possibleConnections) {
-	    cout << "\t" << conn << endl;
-	  }
+	  return {wire, {receiverTile.coordinates, sameNetWire}};
 
 	} else {
 	  assert(false);
@@ -413,6 +390,91 @@ namespace mpnr {
       }
 
       assert(false);
+    }
+
+    std::vector<CGRAWire> receiverSinks(const CGRAWire wire) {
+      vector<CGRAWire> possibleConnections;
+
+      CGRATile receiverTile = getTile(wire.location);
+
+      for (auto comp : receiverTile.components) {
+	for (auto mux : comp.muxes) {
+	  cout << "\tmux inputs" << endl;
+	  bool viableOutput = false;
+	  for (auto input : mux.inputs) {
+	    if (input.second == wire.name) {
+	      viableOutput = true;
+	      break;
+	    }
+	    cout << "\t\t" << input.second << endl;
+	  }
+
+	  if (viableOutput) {
+	    possibleConnections.push_back({receiverTile.coordinates, mux.snk});
+	  }
+	}
+      }
+
+      return possibleConnections;
+    }
+    
+    std::vector<CGRAWire> possibleConnections(const CGRAWire wire) {
+      vector<CGRAWire> possibleConnections;
+      for (auto w : getNet(wire)) {
+	concat(possibleConnections, receiverSinks(w));
+      }
+
+      return possibleConnections;
+
+      // CGRATile tile = getTile(wire.location);
+
+      // // 16 bit IO tiles have one neighbor tile
+      // if (tile.tp == TILE_TYPE_IO_16) {
+      // 	int side = getIOWireSide(wire);
+      // 	int track = getIOWireTrack(wire);
+
+      // 	int outputSide = oppositeSide(side);
+      // 	if (outputSide == 3) {
+      // 	  CGRATile receiverTile = getTile({tile.coordinates.first + 1, tile.coordinates.second});
+      // 	  cout << "Reciever tile location = " << receiverTile.coordinates << endl;
+
+      // 	  //TileCoordinates receiverLoc = receiverTile.coordinates;
+      // 	  std::string sameNetWire = "in_BUS16_S" + to_string(outputSide) + "_T" + to_string(track);
+      // 	  cout << "Same net wire in receiver tile = " << sameNetWire << endl;
+
+      // 	  vector<CGRAWire> possibleConnections;
+
+      // 	  for (auto comp : receiverTile.components) {
+      // 	    for (auto mux : comp.muxes) {
+      // 	      cout << "\tmux inputs" << endl;
+      // 	      bool viableOutput = false;
+      // 	      for (auto input : mux.inputs) {
+      // 		if (input.second == sameNetWire) {
+      // 		  viableOutput = true;
+      // 		  break;
+      // 		}
+      // 		cout << "\t\t" << input.second << endl;
+      // 	      }
+
+      // 	      if (viableOutput) {
+      // 		possibleConnections.push_back({receiverTile.coordinates, mux.snk});
+      // 	      }
+      // 	    }
+      // 	  }
+
+      // 	  cout << "Possible connections" << endl;
+      // 	  for (auto conn : possibleConnections) {
+      // 	    cout << "\t" << conn << endl;
+      // 	  }
+
+      // 	  return possibleConnections;
+
+      // 	} else {
+      // 	  assert(false);
+      // 	}
+      // }
+
+      // assert(false);
     }
   };
 
