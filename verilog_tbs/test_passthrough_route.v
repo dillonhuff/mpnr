@@ -96,7 +96,7 @@ module test();
 
       if (reset_done && config_done && clear_with_zeros_done) begin
 	 cycle_count <= cycle_count + 1;
-	 $fwrite(test_output_file, "%b,%b,%b,%b\n", data_out_16_S0, data_out_16_S1, data_out_16_S2, data_out_16_S3);
+	 $fwrite(test_output_file, "%b,%b,%b,%b,\n", data_out_16_S0, data_out_16_S1, data_out_16_S2, data_out_16_S3);
       end
 
 

@@ -11,6 +11,31 @@ using namespace std;
 
 namespace mpnr {
 
+  std::vector<std::string> readCSVLine(FILE* in) { //std::istream& in) {
+    char * linePtr = NULL;
+    size_t len = 0;
+
+    int res = getline(&linePtr, &len, in);
+    assert(res != 0);
+
+    std::string line(linePtr);
+    vector<string> tokens;
+    string currentToken = "";
+    int i = 0;
+    while (i < (int) line.size()) {
+      if (line[i] != ',') {
+        currentToken += line[i];
+      } else {
+        tokens.push_back(currentToken);
+        currentToken = "";
+      }
+      
+      i++;
+    }
+    
+    return tokens;
+  }
+  
   void runTB(const std::string& tbFile) {
     int vcsCompileRes = system(("vcs -assert disable +nbaopt +rad +nospecify +notimingchecks -ld gcc-4.4 +vcs+lic+wait -licqueue +cli -sverilog -full64 +incdir+/hd/cad/synopsys/dc_shell/latest/packages/gtech/src_ver/ +incdir+/hd/cad/synopsys/dc_shell/latest/dw/sim_ver/ -y /hd/cad/synopsys/dc_shell/latest/dw/sim_ver/ -CFLAGS '-O3 -march=native' ./cgra_verilog/*.v ./cgra_verilog/*.sv " + tbFile + " -top test").c_str());
     assert(vcsCompileRes == 0);
@@ -289,6 +314,27 @@ namespace mpnr {
       string testFile = "verilog_tbs/test_passthrough_route.v";
       runTB(testFile);
 
+      FILE* resFile = fopen("passthrough.txt", "r");
+
+      while (!feof(resFile)) {
+	auto l1Res = readCSVLine(resFile);
+
+	if (l1Res.size() == 0) {
+	  cout << "Found last line, done" << endl;
+	  break;
+	}
+
+	cout << "Line" << endl;
+	for (auto tok : l1Res) {
+	  cout << "\t" << tok << endl;
+	}
+
+	BitVector side2Out = BitVector(16, l1Res[2]);
+
+	REQUIRE(side2Out != BitVector(16, 0));
+      }
+      
+      fclose(resFile);
       
     }
 
