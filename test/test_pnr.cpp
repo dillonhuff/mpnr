@@ -434,7 +434,7 @@ namespace mpnr {
     std::vector<CGRAWire> getNet(const CGRAWire wire) const {
       CGRATile tile = getTile(wire.location);
 
-      cout << "Getting net of " << tile << endl;
+      cout << "Getting net of " << wire << endl;
 
       // 16 bit IO tiles have one neighbor tile
       if (tile.tp == TILE_TYPE_IO_16) {
@@ -466,7 +466,7 @@ namespace mpnr {
 	}
 
 	if (outputSide == 0) {
-	  CGRATile receiverTile = getTile({tile.coordinates.first, tile.coordinates.second + 1});
+	  CGRATile receiverTile = getTile({tile.coordinates.first, tile.coordinates.second - 1});
 	  cout << "Reciever tile location = " << receiverTile.coordinates << endl;
 
 	  //TileCoordinates receiverLoc = receiverTile.coordinates;
@@ -477,7 +477,7 @@ namespace mpnr {
 	}
 
 	if (outputSide == 2) {
-	  CGRATile receiverTile = getTile({tile.coordinates.first, tile.coordinates.second - 1});
+	  CGRATile receiverTile = getTile({tile.coordinates.first, tile.coordinates.second + 1});
 	  cout << "Reciever tile location = " << receiverTile.coordinates << endl;
 
 	  //TileCoordinates receiverLoc = receiverTile.coordinates;
@@ -516,7 +516,7 @@ namespace mpnr {
 	}
 
 	if (outputSide == 0) {
-	  CGRATile receiverTile = getTile({tile.coordinates.first, tile.coordinates.second + 1});
+	  CGRATile receiverTile = getTile({tile.coordinates.first, tile.coordinates.second - 1});
 	  cout << "Reciever tile location = " << receiverTile.coordinates << endl;
 
 	  //TileCoordinates receiverLoc = receiverTile.coordinates;
@@ -527,7 +527,7 @@ namespace mpnr {
 	}
 
 	if (outputSide == 2) {
-	  CGRATile receiverTile = getTile({tile.coordinates.first, tile.coordinates.second - 1});
+	  CGRATile receiverTile = getTile({tile.coordinates.first, tile.coordinates.second + 1});
 	  cout << "Reciever tile location = " << receiverTile.coordinates << endl;
 
 	  //TileCoordinates receiverLoc = receiverTile.coordinates;
@@ -588,6 +588,7 @@ namespace mpnr {
       int min = pe_grid_len*200;
       for (auto aN : getNet(a)) {
 	for (auto bN : getNet(b)) {
+
 	  TileCoordinates aC = aN.location;
 	  TileCoordinates bC = bN.location;
 	  cout << "aN = " << aN << endl;
@@ -605,7 +606,6 @@ namespace mpnr {
     }
 
   };
-
 
   bool sameTile(const TileCoordinates& a, const TileCoordinates b) {
     return (a.first == b.first) && (a.second == b.second);
