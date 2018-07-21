@@ -11,7 +11,7 @@ using namespace std;
 
 namespace mpnr {
 
-  std::vector<std::string> readCSVLine(FILE* in) { //std::istream& in) {
+  std::vector<std::string> readCSVLine(FILE* in) {
     char * linePtr = NULL;
     size_t len = 0;
 
@@ -250,6 +250,9 @@ namespace mpnr {
     return (a.first == b.first) && (a.second == b.second);
   }
 
+  void routeApplication(ModuleDef& def, const std::map<Instance*, TileCoordinates>& placement, CGRA& cgra) {
+  }
+
   std::map<Instance*, TileCoordinates> placeApplication(ModuleDef& def, CGRA& cgra) {
     map<Instance*, TileCoordinates> placement;
 
@@ -270,6 +273,11 @@ namespace mpnr {
     return placement;
   }
 
+  void outputBitstream(const CGRA& cgra, const std::string& fileName) {
+    ofstream out(fileName);
+    out.close();
+  }
+  
   TEST_CASE("Route input to output") {
     Context* c = newContext();
     CoreIRLoadLibrary_cgralib(c);
@@ -307,9 +315,14 @@ namespace mpnr {
       cgra.printPlacement(tilePlacement);
     }
 
-    SECTION("Route, output bitstream and execute routed code") {
-      ofstream out("passthrough.bsa");
-      out.close();
+    SECTION("Route, output bitstream, and execute routed code") {
+
+      // Route the application. This function should modify the CGRA
+      // so that it can be output
+      routeApplication(*def, tilePlacement, cgra);
+
+      // Write the bitstream out to a file
+      outputBitstream(cgra, "passthrough.bsa");
 
       string testFile = "verilog_tbs/test_passthrough_route.v";
       runTB(testFile);
