@@ -83,10 +83,7 @@ namespace mpnr {
   class CGRAWire {
   public:
     TileCoordinates location;
-    CGRAWireType tp;
-    int width;
-    int side;
-    int track;
+    std::string name;
   };
 
   enum TileType {
@@ -121,9 +118,11 @@ namespace mpnr {
   public:
     TileType tp;
     int tileNumber;
+
     TileCoordinates coordinates;
 
     std::vector<std::string> globalOutWires;
+    std::vector<std::string> globalInWires;
 
     std::vector<CGRAComponent> components;
   };
@@ -198,6 +197,9 @@ namespace mpnr {
 	    assert(tileType == "gst");
 	  }
 
+	  TileCoordinates coords = {row, col};
+	  CGRATile& currentTile = tileMap[coords];
+
 	  cout << "out wires" << endl;
 	  vector<string> ioOutWires;
 	  for (auto out : tile.children("output")) {
@@ -227,7 +229,7 @@ namespace mpnr {
 	      sbComp.muxes.push_back({snk, {}});
 	    }
 
-	    TileCoordinates coords = {row, col};
+
 	    tileMap[coords].components.push_back(sbComp);
 	  }
 
@@ -259,18 +261,6 @@ namespace mpnr {
 	  tiles.push_back(coords);
 	}
       }
-      // for (unsigned i = 0; i < tileRows.size(); i++) {
-      // 	auto& tileRow = tileRows[i];
-
-      // 	for (unsigned j = 0; j < tileRow.size(); j++) {
-
-      // 	  CGRATile tile = tileRow[j];
-      // 	  if ((tile.tp == tp) && unoccupied(i, j)) {
-      // 	    tiles.push_back(tile.coordinates);
-      // 	  }
-
-      // 	}
-      // }
 
       return tiles;
     }
@@ -279,22 +269,39 @@ namespace mpnr {
       return pe_grid_len;
     }
 
-    CGRAWire wireFor(const std::map<CoreIR::Instance*, TileCoordinates>& placement, CoreIR::Select* val) {
+    CGRATile getTile(const TileCoordinates coords) const {
+      return map_find(coords, tileMap);
+    }
+
+    CGRAWire wireFor(const std::map<CoreIR::Instance*, TileCoordinates>& placement,
+		     CoreIR::Select* val) {
       Wireable* w = val->getParent();
       assert(isa<Instance>(w));
 
       Instance* node = cast<Instance>(w);
       cout << "Source node = " << node->toString() << endl;
       TileCoordinates t = map_find(node, placement);
+      CGRATile tileFor = getTile(t);
+      std::string portName = val->getSelStr();
 
+      cout << "portName = " << portName << endl;
       cout << "coordinates = " << t << endl;
+      
+      if (tileFor.tp == TILE_TYPE_IO_16) {
+	assert(tileFor.globalOutWires.size() > 0);
+	
+	return {t, tileFor.globalOutWires[0]};
 
-      CGRAWireType tp = CGRA_WIRE_GLOBAL;
-      // Assumes we are dealing with an array
-      int width = 0; //cast<ArrayType>(val->getType())->getWidth();
-      int side = 0;
-      int track = 0;
-      return {t, tp, width, side, track};
+	// CGRAWireType tp = CGRA_WIRE_GLOBAL;
+	// // Assumes we are dealing with an array
+	// int width = 0;
+	// int side = 0;
+	// int track = 0;
+	// return {t, tp, width, side, track};
+
+      }
+
+      assert(false);
     }
 
     void printPlacement(const std::map<CoreIR::Instance*, TileCoordinates>& placement) const {
@@ -350,9 +357,9 @@ namespace mpnr {
       cout << "First is output = " << firstIsOut << endl;
       
       CGRAWire srcWire = cgra.wireFor(placement, cast<Select>(src));
-      cout << "Source coords = " << srcWire.location << endl;
+      cout << "Source coords = " << srcWire.location << ", Source wire name = " << srcWire.name << endl;
       CGRAWire dstWire = cgra.wireFor(placement, cast<Select>(dst));
-      cout << "Dest coords   = " << dstWire.location << endl;
+      cout << "Dest coords   = " << dstWire.location << ", Dest wire name   = " << dstWire.name << endl;
 
       
     }
