@@ -94,6 +94,7 @@ namespace mpnr {
     TILE_TYPE_IO_16,
     TILE_TYPE_PE,
     TILE_TYPE_MEM,
+    TILE_TYPE_LOWER_MEM,
     TILE_TYPE_EMPTY
   };
 
@@ -101,11 +102,30 @@ namespace mpnr {
     return TILE_TYPE_IO_16;
   }
 
+  class CGRAMux {
+  public:
+    std::string snk;
+    std::map<int, std::string> inputs;
+  };
+
+  class CGRAComponent {
+  public:
+    std::string componentType;
+
+    int featureAddress;
+
+    std::vector<CGRAMux> muxes;
+  };
+
   class CGRATile {
   public:
     TileType tp;
     int tileNumber;
     TileCoordinates coordinates;
+
+    std::vector<std::string> globalOutWires;
+
+    std::vector<CGRAComponent> components;
   };
 
   CGRATile peTile(const int tileNumber, TileCoordinates loc) {
@@ -114,6 +134,10 @@ namespace mpnr {
 
   CGRATile memTile(const int tileNumber, TileCoordinates loc) {
     return {TILE_TYPE_MEM, tileNumber, loc};
+  }
+
+  CGRATile lowerMemTile(const int tileNumber, TileCoordinates loc) {
+    return {TILE_TYPE_LOWER_MEM, tileNumber, loc};
   }
   
   CGRATile emptyTile(const int tileNumber, TileCoordinates loc) {
@@ -131,100 +155,90 @@ namespace mpnr {
   class CGRA {
     int pe_grid_len;
 
-    std::vector<std::vector<CGRATile> > tileRows;
+    //std::vector<std::vector<CGRATile> > tileRows;
+    std::map<TileCoordinates, CGRATile> tileMap;;
     std::set<TileCoordinates> occupiedTiles;
 
   public:
-    CGRA(const int pe_grid_len_) : pe_grid_len(pe_grid_len_) {
-      // Build the cgra grid
-      int grid_len = pe_grid_len + 4;
+    CGRA(const std::string& str) {
+      pugi::xml_document doc;
+      auto result = doc.load_file("./cgra_verilog/cgra_info.txt");
+      REQUIRE(result);
 
-      int start_tile_no = 2;
-      vector<CGRATile> topIORow;
-      topIORow.push_back(emptyTile(-1, {0, 0}));
-      topIORow.push_back(emptyTile(-1, {0, 1}));
+      int maxRow = 0;
+      int maxCol = 0;
+      for (auto cgra : doc.children("CGRA")) {
+	for (auto tile : cgra.children("tile")) {
+	  string tileType = tile.attribute("type").as_string();
+	  //cout << "Tile type = " << tileType << endl;
 
-      for (; start_tile_no < pe_grid_len + 2; start_tile_no++) {
-	topIORow.push_back(io1Tile(start_tile_no, {0, start_tile_no}));
-      }
+	  int row = tile.attribute("row").as_int();
+	  int col = tile.attribute("col").as_int();
+	  int tileNumber = 0;
 
-      topIORow.push_back(emptyTile(-1, {0, start_tile_no}));
-      topIORow.push_back(emptyTile(-1, {0, start_tile_no}));
-      
-      tileRows.push_back(topIORow);
-
-      assert(start_tile_no == 18);
-
-      // Build next 16 IO row
-      vector<CGRATile> sndTileRow;
-      sndTileRow.push_back(emptyTile(-1, {1, 0}));
-      sndTileRow.push_back(emptyTile(-1, {1, 1}));
-
-      sndTileRow.push_back(io16Tile(start_tile_no, {1, 2}));
-      start_tile_no++;
-      for (int i = 0; i < pe_grid_len + 1; i++) {
-	sndTileRow.push_back(emptyTile(-1, {1, i + 3}));
-      }
-
-      tileRows.push_back(sndTileRow);
-
-      assert(start_tile_no == 19);
-
-      // Construct 3rd row: 1bit, 16bit, <pe / mem grid>, 16 bit, 1bit
-      vector<CGRATile> thirdRow;
-      thirdRow.push_back(io1Tile(start_tile_no, {2, 0}));
-      start_tile_no++;
-
-      thirdRow.push_back(io16Tile(start_tile_no, {2, 1}));
-      start_tile_no++;
-
-      for (int i = 0; i < pe_grid_len; i++) {
-	if ((i % 4) == 3) {
-	  thirdRow.push_back(memTile(start_tile_no, {2, i + 2}));
-	} else {
-	   thirdRow.push_back(peTile(start_tile_no, {2, i + 2}));
-	}
-	start_tile_no++;
-      }
-      
-      thirdRow.push_back(io16Tile(start_tile_no, {2, pe_grid_len + 2}));
-      start_tile_no++;
-
-      thirdRow.push_back(io1Tile(start_tile_no, {2, pe_grid_len + 3}));
-      start_tile_no++;
-
-      tileRows.push_back(thirdRow);
-
-      for (int row = 3; row < pe_grid_len + 2; row++) {
-      	vector<CGRATile> tileRow;
-	tileRow.push_back(io1Tile(start_tile_no, {row, 0}));
-	start_tile_no++;
-
-	tileRow.push_back(io1Tile(-1, {row, 1}));
-
-	for (int i = 0; i < pe_grid_len; i++) {
-	  if ((i % 4) == 3) {
-	    tileRow.push_back(memTile(start_tile_no, {row, i + 2}));
-	  } else {
-	    tileRow.push_back(peTile(start_tile_no, {row, i + 2}));
+	  if (row > maxRow) {
+	    maxRow = row;
 	  }
-	  start_tile_no++;
+	  if (col > maxCol) {
+	    maxCol = col;
+	  }
+
+	  if (tileType == "pe_tile_new") {
+	    tileMap[{row, col}] = peTile(tileNumber, {row, col});
+	  } else if (tileType == "empty") {
+	    tileMap[{row, col}] = emptyTile(tileNumber, {row, col});
+	  } else if (tileType == "io1bit") {
+	    tileMap[{row, col}] = io1Tile(tileNumber, {row, col});
+	  } else if (tileType == "io16bit") {
+	    tileMap[{row, col}] = io16Tile(tileNumber, {row, col});
+	  } else if (tileType == "memory_tile") {
+	    tileMap[{row, col}] = memTile(tileNumber, {row, col});
+	    tileMap[{row + 1, col}] = lowerMemTile(tileNumber, {row + 1, col});
+	  } else {
+	    assert(tileType == "gst");
+	  }
+
+	  cout << "out wires" << endl;
+	  vector<string> ioOutWires;
+	  for (auto out : tile.children("output")) {
+	    for (auto c : out.children()) {
+	      cout << "\t" << c.value() << endl;
+	      ioOutWires.push_back(c.value());
+	    }
+	  }
+
+	  vector<string> inWires;
+	  for (auto out : tile.children("input")) {
+	    for (auto c : out.children()) {
+	      inWires.push_back(c.value());
+	    }
+	  }
+
+	  //cout << "Outgoing global wires from " << tileType << endl;
+	  for (auto sb : tile.children("sb")) {
+	    CGRAComponent sbComp;
+	    sbComp.componentType = "sb";
+	    sbComp.featureAddress = sb.attribute("feature_address").as_int();
+	    
+	    // Add sbComp.muxes
+	    for (auto m : sb.children("mux")) {
+	      string snk = m.attribute("snk").as_string();
+	      //cout << "\tglobal wire = " << snk << endl;
+	      sbComp.muxes.push_back({snk, {}});
+	    }
+
+	    TileCoordinates coords = {row, col};
+	    tileMap[coords].components.push_back(sbComp);
+	  }
+
 	}
-
-	tileRow.push_back(io1Tile(start_tile_no, {row, pe_grid_len + 2}));
-	start_tile_no++;
-	
-	tileRow.push_back(emptyTile(-1, {row, pe_grid_len + 3}));
-
-      	tileRows.push_back(tileRow);
-      }
-      
-      printPlacement({});
-      unsigned rowZeroSize = tileRows[0].size();
-      for (auto r : tileRows) {
-	assert(rowZeroSize == r.size());
       }
 
+      cout << "maxRow = " << maxRow << endl;
+      cout << "maxCol = " << maxCol << endl;
+      assert(maxRow == maxCol);
+
+      pe_grid_len = maxCol - 3;
     }
 
     void setOccupied(const TileCoordinates coords) {
@@ -238,18 +252,25 @@ namespace mpnr {
     std::vector<TileCoordinates> unplacedTilesOfType(const TileType& tp) const {
       vector<TileCoordinates> tiles;
 
-      for (unsigned i = 0; i < tileRows.size(); i++) {
-	auto& tileRow = tileRows[i];
-
-	for (unsigned j = 0; j < tileRow.size(); j++) {
-
-	  CGRATile tile = tileRow[j];
-  	  if ((tile.tp == tp) && unoccupied(i, j)) {
-  	    tiles.push_back(tile.coordinates);
-  	  }
-
-  	}
+      for (auto p : tileMap) {
+	TileCoordinates coords = p.first;
+	auto type = p.second.tp;
+	if ((type == tp) && (unoccupied(coords.first, coords.second))) {
+	  tiles.push_back(coords);
+	}
       }
+      // for (unsigned i = 0; i < tileRows.size(); i++) {
+      // 	auto& tileRow = tileRows[i];
+
+      // 	for (unsigned j = 0; j < tileRow.size(); j++) {
+
+      // 	  CGRATile tile = tileRow[j];
+      // 	  if ((tile.tp == tp) && unoccupied(i, j)) {
+      // 	    tiles.push_back(tile.coordinates);
+      // 	  }
+
+      // 	}
+      // }
 
       return tiles;
     }
@@ -277,25 +298,32 @@ namespace mpnr {
     }
 
     void printPlacement(const std::map<CoreIR::Instance*, TileCoordinates>& placement) const {
-      for (unsigned i = 0; i < tileRows.size(); i++) {
-	auto& gridRow = tileRows[i];
-	for (unsigned j = 0; j < gridRow.size(); j++) {
+      for (int i = 0; i < pe_grid_len + 4; i++) {
+      	//auto& gridRow = tileRows[i];
+      	for (int j = 0; j < pe_grid_len + 4; j++) {
 	  TileCoordinates coords = {(int) i, (int) j};
-	  bool isPlaced = false;
-	  for (auto place : placement) {
-	    if (place.second == coords) {
-	      isPlaced = true;
-	      break;
-	    }
+	  if (!contains_key(coords, tileMap)) {
+	    cout << "coords = " << coords << " not in tilemap " << endl;
 	  }
+	  assert(contains_key(coords, tileMap));
+	  
+	  //CGRATile t = map_find(coords, tileMap);
 
-	  if (isPlaced) {
-	    cout << " P";
-	  } else {
-	    cout << " .";
-	  }
-	}
-	cout << " " << endl;
+      	  bool isPlaced = false;
+      	  for (auto place : placement) {
+      	    if (place.second == coords) {
+      	      isPlaced = true;
+      	      break;
+      	    }
+      	  }
+
+      	  if (isPlaced) {
+      	    cout << " P";
+      	  } else {
+      	    cout << " .";
+      	  }
+      	}
+      	cout << " " << endl;
       }
     }
   };
@@ -325,6 +353,8 @@ namespace mpnr {
       cout << "Source coords = " << srcWire.location << endl;
       CGRAWire dstWire = cgra.wireFor(placement, cast<Select>(dst));
       cout << "Dest coords   = " << dstWire.location << endl;
+
+      
     }
 
     assert(false);
@@ -363,7 +393,8 @@ namespace mpnr {
     for (auto cgra : doc.children("CGRA")) {
       for (auto tile : cgra.children("tile")) {
 	string tileType = tile.attribute("type").as_string();
-	cout << "Tile type = " << tileType << endl;
+	//cout << "Tile type = " << tileType << endl;
+	
       }
     }
   }
@@ -383,7 +414,8 @@ namespace mpnr {
     
     def->connect("io0.out","io1.in");
 
-    CGRA cgra(16);
+    //CGRA cgra(16);
+    CGRA cgra("./cgra_verilog/cgra_info.txt");
     map<Instance*, TileCoordinates > tilePlacement =
       placeApplication(*def, cgra);
 
