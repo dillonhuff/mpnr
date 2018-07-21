@@ -359,6 +359,13 @@ namespace mpnr {
     pugi::xml_document doc;
     auto result = doc.load_file("./cgra_verilog/cgra_info.txt");
     REQUIRE(result);
+
+    for (auto cgra : doc.children("CGRA")) {
+      for (auto tile : cgra.children("tile")) {
+	string tileType = tile.attribute("type").as_string();
+	cout << "Tile type = " << tileType << endl;
+      }
+    }
   }
   
   TEST_CASE("Route input to output") {
