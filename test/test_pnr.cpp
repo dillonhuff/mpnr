@@ -86,23 +86,84 @@ namespace mpnr {
     std::string name;
   };
 
-  std::ostream& operator<<(std::ostream& out, const CGRAWire wire) {
+  bool operator==(const CGRAWire& l, const CGRAWire& r) {
+    return (l.location == r.location) && (l.name == r.name);
+  }
+
+  std::ostream& operator<<(std::ostream& out, const CGRAWire& wire) {
     out << wire.location << "." << wire.name;
     return out;
   }
 
   int getIOWireSide(const CGRAWire wire) {
-    string name = wire.name;
-    string side = name.substr(11, 1);
-    cout << "side = " << side << endl;
-    return stoi(side);
+    //cout << "IO wire name = " << wire.name << endl;
+
+    if (wire.name[0] == 'o') {
+      string name = wire.name;
+      string side = name.substr(11, 1);
+      //cout << "side = " << side << endl;
+      return stoi(side);
+    } else {
+      assert(wire.name[0] == 'i');
+
+      string name = wire.name;
+      string side = name.substr(10, 1);
+      //cout << "side = " << side << endl;
+      return stoi(side);
+
+    }
   }
 
   int getIOWireTrack(const CGRAWire wire) {
-    string name = wire.name;
-    string side = name.substr(14, 1);
-    cout << "track = " << side << endl;
-    return stoi(side);
+    //cout << "IO wire name = " << wire.name << endl;
+
+    if (wire.name[0] == 'o') {
+      string name = wire.name;
+      string side = name.substr(14, 1);
+      //cout << "track = " << side << endl;
+      return stoi(side);
+    } else {
+      assert(wire.name[0] == 'i');
+
+      string name = wire.name;
+      string side = name.substr(13, 1);
+      //cout << "track = " << side << endl;
+      return stoi(side);
+
+    }
+  }
+
+  int getGlobalWireSide(const CGRAWire wire) {
+    //cout << "Wire name = " << wire.name << endl;
+    if (wire.name[0] == 'o') {
+      string name = wire.name;
+      string side = name.substr(11, 1);
+      //cout << "side = " << side << endl;
+      return stoi(side);
+    } else {
+      assert(wire.name[0] == 'i');
+      string name = wire.name;
+      string side = name.substr(10, 1);
+      //cout << "side = " << side << endl;
+      return stoi(side);
+    }
+  }
+
+  int getGlobalWireTrack(const CGRAWire wire) {
+    //cout << "Wire name = " << wire.name << endl;
+    if (wire.name[0] == 'o') {
+      string name = wire.name;
+      string side = name.substr(14, 1);
+      //cout << "track = " << side << endl;
+      return stoi(side);
+    } else {
+      assert(wire.name[0] == 'i');
+
+      string name = wire.name;
+      string side = name.substr(16, 1);
+      //cout << "track = " << side << endl;
+      return stoi(side);
+    }
   }
   
   int oppositeSide(const int side) {
@@ -151,6 +212,11 @@ namespace mpnr {
 
     std::vector<CGRAComponent> components;
   };
+
+  std::ostream& operator<<(std::ostream& out, const CGRATile& tile) {
+    out << "TILE: " << tile.tp << ", " << tile.tileNumber << ", " << tile.coordinates << endl;
+    return out;
+  }
 
   CGRATile peTile(const int tileNumber, TileCoordinates loc) {
     return {TILE_TYPE_PE, tileNumber, loc};
@@ -365,8 +431,10 @@ namespace mpnr {
       }
     }
 
-    std::vector<CGRAWire> getNet(const CGRAWire wire) {
+    std::vector<CGRAWire> getNet(const CGRAWire wire) const {
       CGRATile tile = getTile(wire.location);
+
+      cout << "Getting net of " << tile << endl;
 
       // 16 bit IO tiles have one neighbor tile
       if (tile.tp == TILE_TYPE_IO_16) {
@@ -384,9 +452,97 @@ namespace mpnr {
 
 	  return {wire, {receiverTile.coordinates, sameNetWire}};
 
-	} else {
-	  assert(false);
 	}
+
+	if (outputSide == 1) {
+	  CGRATile receiverTile = getTile({tile.coordinates.first - 1, tile.coordinates.second});
+	  cout << "Reciever tile location = " << receiverTile.coordinates << endl;
+
+	  //TileCoordinates receiverLoc = receiverTile.coordinates;
+	  std::string sameNetWire = "in_BUS16_S" + to_string(outputSide) + "_T" + to_string(track);
+	  cout << "Same net wire in receiver tile = " << sameNetWire << endl;
+
+	  return {wire, {receiverTile.coordinates, sameNetWire}};
+	}
+
+	if (outputSide == 0) {
+	  CGRATile receiverTile = getTile({tile.coordinates.first, tile.coordinates.second + 1});
+	  cout << "Reciever tile location = " << receiverTile.coordinates << endl;
+
+	  //TileCoordinates receiverLoc = receiverTile.coordinates;
+	  std::string sameNetWire = "in_BUS16_S" + to_string(outputSide) + "_T" + to_string(track);
+	  cout << "Same net wire in receiver tile = " << sameNetWire << endl;
+
+	  return {wire, {receiverTile.coordinates, sameNetWire}};
+	}
+
+	if (outputSide == 2) {
+	  CGRATile receiverTile = getTile({tile.coordinates.first, tile.coordinates.second - 1});
+	  cout << "Reciever tile location = " << receiverTile.coordinates << endl;
+
+	  //TileCoordinates receiverLoc = receiverTile.coordinates;
+	  std::string sameNetWire = "in_BUS16_S" + to_string(outputSide) + "_T" + to_string(track);
+	  cout << "Same net wire in receiver tile = " << sameNetWire << endl;
+
+	  return {wire, {receiverTile.coordinates, sameNetWire}};
+	}
+	
+	assert(false);
+      } else if (tile.tp == TILE_TYPE_PE) {
+	int side = getGlobalWireSide(wire);
+	int track = getGlobalWireTrack(wire);
+
+	int outputSide = oppositeSide(side);
+	if (outputSide == 3) {
+	  CGRATile receiverTile = getTile({tile.coordinates.first + 1, tile.coordinates.second});
+	  cout << "Reciever tile location = " << receiverTile.coordinates << endl;
+
+	  //TileCoordinates receiverLoc = receiverTile.coordinates;
+	  std::string sameNetWire = "in_BUS16_S" + to_string(outputSide) + "_T" + to_string(track);
+	  cout << "Same net wire in receiver tile = " << sameNetWire << endl;
+
+	  return {wire, {receiverTile.coordinates, sameNetWire}};
+	}
+
+	if (outputSide == 1) {
+	  CGRATile receiverTile = getTile({tile.coordinates.first - 1, tile.coordinates.second});
+	  cout << "Reciever tile location = " << receiverTile.coordinates << endl;
+
+	  //TileCoordinates receiverLoc = receiverTile.coordinates;
+	  std::string sameNetWire = "in_BUS16_S" + to_string(outputSide) + "_T" + to_string(track);
+	  cout << "Same net wire in receiver tile = " << sameNetWire << endl;
+
+	  return {wire, {receiverTile.coordinates, sameNetWire}};
+	}
+
+	if (outputSide == 0) {
+	  CGRATile receiverTile = getTile({tile.coordinates.first, tile.coordinates.second + 1});
+	  cout << "Reciever tile location = " << receiverTile.coordinates << endl;
+
+	  //TileCoordinates receiverLoc = receiverTile.coordinates;
+	  std::string sameNetWire = "in_BUS16_S" + to_string(outputSide) + "_T" + to_string(track);
+	  cout << "Same net wire in receiver tile = " << sameNetWire << endl;
+
+	  return {wire, {receiverTile.coordinates, sameNetWire}};
+	}
+
+	if (outputSide == 2) {
+	  CGRATile receiverTile = getTile({tile.coordinates.first, tile.coordinates.second - 1});
+	  cout << "Reciever tile location = " << receiverTile.coordinates << endl;
+
+	  //TileCoordinates receiverLoc = receiverTile.coordinates;
+	  std::string sameNetWire = "in_BUS16_S" + to_string(outputSide) + "_T" + to_string(track);
+	  cout << "Same net wire in receiver tile = " << sameNetWire << endl;
+
+	  return {wire, {receiverTile.coordinates, sameNetWire}};
+	}
+	
+	assert(false);
+	// cout << "PE tile wire" << endl;
+	// assert(false);
+	
+      } else {
+	assert(false);
       }
 
       assert(false);
@@ -399,14 +555,14 @@ namespace mpnr {
 
       for (auto comp : receiverTile.components) {
 	for (auto mux : comp.muxes) {
-	  cout << "\tmux inputs" << endl;
+	  //cout << "\tmux inputs" << endl;
 	  bool viableOutput = false;
 	  for (auto input : mux.inputs) {
 	    if (input.second == wire.name) {
 	      viableOutput = true;
 	      break;
 	    }
-	    cout << "\t\t" << input.second << endl;
+	    //cout << "\t\t" << input.second << endl;
 	  }
 
 	  if (viableOutput) {
@@ -425,57 +581,29 @@ namespace mpnr {
       }
 
       return possibleConnections;
-
-      // CGRATile tile = getTile(wire.location);
-
-      // // 16 bit IO tiles have one neighbor tile
-      // if (tile.tp == TILE_TYPE_IO_16) {
-      // 	int side = getIOWireSide(wire);
-      // 	int track = getIOWireTrack(wire);
-
-      // 	int outputSide = oppositeSide(side);
-      // 	if (outputSide == 3) {
-      // 	  CGRATile receiverTile = getTile({tile.coordinates.first + 1, tile.coordinates.second});
-      // 	  cout << "Reciever tile location = " << receiverTile.coordinates << endl;
-
-      // 	  //TileCoordinates receiverLoc = receiverTile.coordinates;
-      // 	  std::string sameNetWire = "in_BUS16_S" + to_string(outputSide) + "_T" + to_string(track);
-      // 	  cout << "Same net wire in receiver tile = " << sameNetWire << endl;
-
-      // 	  vector<CGRAWire> possibleConnections;
-
-      // 	  for (auto comp : receiverTile.components) {
-      // 	    for (auto mux : comp.muxes) {
-      // 	      cout << "\tmux inputs" << endl;
-      // 	      bool viableOutput = false;
-      // 	      for (auto input : mux.inputs) {
-      // 		if (input.second == sameNetWire) {
-      // 		  viableOutput = true;
-      // 		  break;
-      // 		}
-      // 		cout << "\t\t" << input.second << endl;
-      // 	      }
-
-      // 	      if (viableOutput) {
-      // 		possibleConnections.push_back({receiverTile.coordinates, mux.snk});
-      // 	      }
-      // 	    }
-      // 	  }
-
-      // 	  cout << "Possible connections" << endl;
-      // 	  for (auto conn : possibleConnections) {
-      // 	    cout << "\t" << conn << endl;
-      // 	  }
-
-      // 	  return possibleConnections;
-
-      // 	} else {
-      // 	  assert(false);
-      // 	}
-      // }
-
-      // assert(false);
     }
+
+    int rc_distance(const CGRAWire& a, const CGRAWire& b) const {
+      // Need to compute the minimul distance between nets
+      int min = pe_grid_len*200;
+      for (auto aN : getNet(a)) {
+	for (auto bN : getNet(b)) {
+	  TileCoordinates aC = aN.location;
+	  TileCoordinates bC = bN.location;
+	  cout << "aN = " << aN << endl;
+	  cout << "bN = " << bN << endl;
+	  int d = fabs(aC.first - bC.first) + fabs(aC.second - bC.second);
+	  cout << "d  = " << d << endl;
+
+	  if (d < min) {
+	    min = d;
+	  }
+	}
+      }
+
+      return min;
+    }
+
   };
 
 
@@ -483,7 +611,45 @@ namespace mpnr {
     return (a.first == b.first) && (a.second == b.second);
   }
 
-  void routeApplication(ModuleDef& def, const std::map<Instance*, TileCoordinates>& placement, CGRA& cgra) {
+  typedef std::map<Instance*, TileCoordinates> Placement;
+
+  bool findRoute(const CGRAWire& srcWire,
+		 const CGRAWire& dstWire,
+		 CGRA& cgra) {
+
+    // If the destination is already in the same net as the source we are done
+    for (auto w : cgra.getNet(srcWire)) {
+      if (w == dstWire) {
+	return true;
+      }
+    }
+
+    std::vector<CGRAWire> nextSteps =
+      cgra.possibleConnections(srcWire);
+    cout << "Possible next steps in path:" << endl;
+    for (auto next : nextSteps) {
+      cout << "\t" << next << endl;
+    }
+
+    if (nextSteps.size() == 0) {
+      // Unset route
+      return false;
+    }
+
+    sort_lt(nextSteps, [dstWire, cgra](const CGRAWire& l) { return cgra.rc_distance(l, dstWire); });
+    //for (auto possibleStep : nextSteps) {
+    CGRAWire possibleStep = nextSteps[0];
+    cout << "Trying path = " << possibleStep << endl;
+    bool routed = findRoute(possibleStep, dstWire, cgra);
+    if (routed) {
+      cout << "Next step is " << possibleStep << endl;
+      return true;
+    }
+    
+    return false;
+  }
+
+  void routeApplication(ModuleDef& def, const Placement& placement, CGRA& cgra) {
     // Basically: For every connection:
     // 1. Convert the connection into some tile coordinate and wire and within the tile?
     // 2. Find route from source wire to dest wire?
@@ -498,20 +664,14 @@ namespace mpnr {
       cout << src->toString() << " -> " << dst->toString() << endl;
       cout << "First is input  = " << firstIsIn << endl;
       cout << "First is output = " << firstIsOut << endl;
-      
+
       CGRAWire srcWire = cgra.wireFor(placement, cast<Select>(src));
       cout << "Source coords = " << srcWire.location << ", Source wire name = " << srcWire.name << endl;
       CGRAWire dstWire = cgra.wireFor(placement, cast<Select>(dst));
       cout << "Dest coords   = " << dstWire.location << ", Dest wire name   = " << dstWire.name << endl;
 
-      std::vector<CGRAWire> nextSteps =
-	cgra.possibleConnections(srcWire);
-
-      cout << "Possible next steps in path:" << endl;
-      for (auto next : nextSteps) {
-	cout << "\t" << next << endl;
-      }
-      
+      bool foundRoute = findRoute(srcWire, dstWire, cgra);
+      assert(foundRoute);
     }
 
     assert(false);
