@@ -174,20 +174,36 @@ namespace mpnr {
 
       tileRows.push_back(thirdRow);
 
+      for (int row = 3; row < pe_grid_len + 2; row++) {
+      	vector<CGRATile> tileRow;
+	tileRow.push_back(io1Tile(start_tile_no, {row, 0}));
+	start_tile_no++;
+
+	tileRow.push_back(io1Tile(-1, {row, 1}));
+
+	for (int i = 0; i < pe_grid_len; i++) {
+	  if ((i % 4) == 3) {
+	    tileRow.push_back(memTile(start_tile_no, {row, i + 2}));
+	  } else {
+	    tileRow.push_back(peTile(start_tile_no, {row, i + 2}));
+	  }
+	  start_tile_no++;
+	}
+
+	tileRow.push_back(io1Tile(start_tile_no, {row, pe_grid_len + 2}));
+	start_tile_no++;
+	
+	tileRow.push_back(emptyTile(-1, {row, pe_grid_len + 3}));
+
+      	tileRows.push_back(tileRow);
+      }
+      
       printPlacement({});
       unsigned rowZeroSize = tileRows[0].size();
       for (auto r : tileRows) {
 	assert(rowZeroSize == r.size());
       }
-      
-      // for (int row = 0; row < grid_len; row++) {
-      // 	vector<CGRATile> tileRow;
-      // 	for (int col = 0; col < grid_len; col++) {
-      // 	  tileRow.push_back({TILE_TYPE_EMPTY, {row, col}});
-      // 	}
 
-      // 	tileRows.push_back(tileRow);
-      // }
     }
 
     void setOccupied(const TileCoordinates coords) {
@@ -200,7 +216,7 @@ namespace mpnr {
 
     std::vector<TileCoordinates> unplacedTilesOfType(const TileType& tp) const {
       vector<TileCoordinates> tiles;
-      //for (auto row : tileRows) {
+
       for (unsigned i = 0; i < tileRows.size(); i++) {
 	auto& tileRow = tileRows[i];
 
