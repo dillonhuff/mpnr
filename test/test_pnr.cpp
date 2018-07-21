@@ -2,6 +2,8 @@
 #include "coreir/libs/cgralib.h"
 #include "coreir/libs/commonlib.h"
 
+#include "pugixml.hpp"
+
 #include <fstream>
 
 #include "catch.hpp"
@@ -50,6 +52,11 @@ namespace mpnr {
     int second;
   };
 
+  std::ostream& operator<<(std::ostream& out, const TileCoordinates a) {
+    out << "(" << a.first << ", " << a.second << ")";
+    return out;
+  }
+
   bool operator==(const TileCoordinates a, const TileCoordinates b) {
     return (a.first == b.first) && (a.second == b.second);
   }
@@ -67,6 +74,20 @@ namespace mpnr {
     // a.first > b.first
     return false;
   }
+
+  enum CGRAWireType {
+    CGRA_WIRE_GLOBAL,
+    CGRA_WIRE_IO
+  };
+
+  class CGRAWire {
+  public:
+    TileCoordinates location;
+    CGRAWireType tp;
+    int width;
+    int side;
+    int track;
+  };
 
   enum TileType {
     TILE_TYPE_IO_1,
@@ -237,6 +258,24 @@ namespace mpnr {
       return pe_grid_len;
     }
 
+    CGRAWire wireFor(const std::map<CoreIR::Instance*, TileCoordinates>& placement, CoreIR::Select* val) {
+      Wireable* w = val->getParent();
+      assert(isa<Instance>(w));
+
+      Instance* node = cast<Instance>(w);
+      cout << "Source node = " << node->toString() << endl;
+      TileCoordinates t = map_find(node, placement);
+
+      cout << "coordinates = " << t << endl;
+
+      CGRAWireType tp = CGRA_WIRE_GLOBAL;
+      // Assumes we are dealing with an array
+      int width = 0; //cast<ArrayType>(val->getType())->getWidth();
+      int side = 0;
+      int track = 0;
+      return {t, tp, width, side, track};
+    }
+
     void printPlacement(const std::map<CoreIR::Instance*, TileCoordinates>& placement) const {
       for (unsigned i = 0; i < tileRows.size(); i++) {
 	auto& gridRow = tileRows[i];
@@ -267,6 +306,28 @@ namespace mpnr {
   }
 
   void routeApplication(ModuleDef& def, const std::map<Instance*, TileCoordinates>& placement, CGRA& cgra) {
+    // Basically: For every connection:
+    // 1. Convert the connection into some tile coordinate and wire and within the tile?
+    // 2. Find route from source wire to dest wire?
+    for (auto conn : def.getConnections()) {
+      cout << conn.first->toString() << " <-> " << conn.second->toString() << endl;
+      bool firstIsIn = conn.first->getType()->isInput();
+      bool firstIsOut = conn.first->getType()->isOutput();
+
+      Wireable* src = firstIsIn ? conn.second : conn.first;
+      Wireable* dst = firstIsIn ? conn.first : conn.second;
+
+      cout << src->toString() << " -> " << dst->toString() << endl;
+      cout << "First is input  = " << firstIsIn << endl;
+      cout << "First is output = " << firstIsOut << endl;
+      
+      CGRAWire srcWire = cgra.wireFor(placement, cast<Select>(src));
+      cout << "Source coords = " << srcWire.location << endl;
+      CGRAWire dstWire = cgra.wireFor(placement, cast<Select>(dst));
+      cout << "Dest coords   = " << dstWire.location << endl;
+    }
+
+    assert(false);
   }
 
   std::map<Instance*, TileCoordinates> placeApplication(ModuleDef& def, CGRA& cgra) {
@@ -292,6 +353,12 @@ namespace mpnr {
   void outputBitstream(const CGRA& cgra, const std::string& fileName) {
     ofstream out(fileName);
     out.close();
+  }
+
+  TEST_CASE("Parse CGRA info") {
+    pugi::xml_document doc;
+    auto result = doc.load_file("./cgra_verilog/cgra_info.txt");
+    REQUIRE(result);
   }
   
   TEST_CASE("Route input to output") {

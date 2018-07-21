@@ -11,7 +11,9 @@ SET( CMAKE_EXE_LINKER_FLAGS  "${CMAKE_EXE_LINKER_FLAGS} ${CXX_OCL_LINK_FLAGS}")
 
 INCLUDE_DIRECTORIES(./src/)
 
-SET(CPP_FILES ./src/pnr.cpp)
+SET(CPP_FILES ./src/pnr.cpp
+  ./src/pugixml.cpp)
+
 add_library(mpnr ${CPP_FILES})
 
 # Test executables
