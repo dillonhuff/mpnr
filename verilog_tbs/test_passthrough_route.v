@@ -37,7 +37,7 @@ module test();
    reg [64:0] cycle_count;
    wire [64:0] max_cycles;
 
-   assign max_cycles = 1000000;
+   assign max_cycles = 10;
    
    initial begin
 
@@ -96,7 +96,7 @@ module test();
 
       if (reset_done && config_done && clear_with_zeros_done) begin
 	 cycle_count <= cycle_count + 1;
-	 $fwrite(test_output_file, "%b\n", data_out_16_S0);      
+	 $fwrite(test_output_file, "%b,%b,%b,%b\n", data_out_16_S0, data_out_16_S1, data_out_16_S2, data_out_16_S3);
       end
 
 
